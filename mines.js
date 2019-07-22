@@ -1,4 +1,4 @@
-var readline = require('readline-sync');
+// var readline = require('readline-sync');
 var blessed = require('blessed');
 
 // always know where the mouse is pointing
