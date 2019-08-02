@@ -1,5 +1,6 @@
 // var readline = require('readline-sync');
 var blessed = require('blessed');
+var fs = require('fs');
 
 // always know where the mouse is pointing
 var mousePos = { x: 0, y: 0 };
@@ -56,7 +57,7 @@ var infobox = blessed.box({
     left: 'center',
     width: 37,
     height: 3,
-    tags: true,
+    tags: false,
     border: {
         type: 'line'
     },
@@ -66,7 +67,37 @@ var infobox = blessed.box({
     }
 });
 
+// menu
+var menuBox = blessed.box({
+    top: 2,
+    left: 'center',
+    width: 29,
+    height: 6,
+    tags: true,
+    border: {type: 'line'},
+    style: {
+        bg: 'white',
+        fg: 'black'
+    },
+})
+var menuOptions = [
+    "  easy",
+    "  medium",
+    "  hard",
+    "* view high scores *",
+]
+var menuOpen = false;
+var menuSelect = 0;
+// click catcher to catch off-menu clicks
+var offClickBox = blessed.box({
+    width: "100%",
+    height: "100%",
+    zIndex: -1,
+    border: { type: "none" }
+})
+
 // Append our boxes to the screen.
+screen.append(offClickBox);
 screen.append(mineBox);
 screen.append(infobox);
 
@@ -87,10 +118,20 @@ startGame();
     
 function startGame() {
     // generate map appropriate to difficulty level
+    maps = {
+        0: { width: 9, height: 9, mines: 10 },
+        1: { width: 16, height: 16, mines: 40 },
+        2: { width: 30, height: 16, mines: 99 }
+    }
+    mines = maps[difficulty].mines;
+    mineMap.width = maps[difficulty].width;
+    mineMap.height = maps[difficulty].height;
     // generate blank map, just so we have something to show
-    mineMap.cells = generateMineMap(16, 16, 0);
+    mineMap.cells = generateMineMap(mineMap.width, mineMap.height, 0);
 
-    mines = 40;
+    // adjust mine box to fit map
+    mineBox.width = maps[difficulty].width * 2 + 3;
+    mineBox.height = maps[difficulty].height + 2;
 
     // reset game variables
     flags = 0;
@@ -102,10 +143,10 @@ function startGame() {
     // reset click function
     mineBox.off('click');
     // next time we click, it will generate the map
-    mineBox.on('click', (event) => {
+    mineBox.on('click', () => {
 
         // generate new map
-        mineMap.cells = generateMineMap(16, 16, mines);
+        mineMap.cells = generateMineMap(mineMap.width, mineMap.height, mines);
 
         // start the game and the timer
         startTime = Date.now();
@@ -133,26 +174,34 @@ function startGame() {
     if (!frameInterval) frameInterval = setInterval(() => {
         // display map string
         displayMap(mineMap);
+        let content = '';
         // show game info
         if (debugMouse) 
-            infobox.setContent(infobox.content);
+            content =infobox.content;
         else if (!gameStarted)
-            infobox.setContent("40     0:00");
-        else if (!gameWon && !gameLost)
+            content ="40     0:00";
+        else if (!gameWon && !gameLost) 
             // update game timer and remaining mines
-            infobox.setContent((mines - flags) + "     " +
+            content = (mines - flags) + "     " +
                 (parseInt((Date.now() - startTime) / 1000)) + ":" +
-                (parseInt((Date.now() - startTime) / 10) % 100));
+                (parseInt((Date.now() - startTime) / 10) % 100);
         else if (gameLost)
-            infobox.setContent((mines - flags) + "  :(");
+            content =(mines - flags) + "  :(";
         else
-            infobox.setContent("you win! time: " + finalTime);
+            content = "you win! time: " + finalTime;
+        // add menu icon
+        content += ' '.repeat(31 - content.length) + "☰☰"
+        // display content in box
+        infobox.setContent(content);
+
+        if (menuOpen) displayMenu();
+
         // Render the screen.
         screen.render();
     }, 33);
 };
 
-// track mouse
+// track mouse over game board
 mineBox.on("mousemove", function (mouse) {
     let x = mouse.x - mineBox.left - 1;
     // move to the next cell when the mouse advances onto a line
@@ -161,7 +210,7 @@ mineBox.on("mousemove", function (mouse) {
         let newPosX = Math.floor(mousePos.x + Math.sign(x / 2 - mousePos.x - 0.5));
         // stay in bounds
         if (newPosX < 0 || mousePos.y < 0 || newPosX >= mineMap.cells.length || mousePos.y >= mineMap.cells[0].length) return;
-        // but only do that if the new cell we'd be leading into is undiscovered and unflagged
+        // only move if the new cell we'd be leading into is undiscovered and unflagged
         if (!mineMap.cells[newPosX, mousePos.y].discovered
             && !mineMap.cells[newPosX, mousePos.y].flagged)
             mousePos.x = newPosX
@@ -171,8 +220,22 @@ mineBox.on("mousemove", function (mouse) {
         // round down
         mousePos.x = Math.floor(x / 2);
     mousePos.y = mouse.y - mineBox.top - 1;
-    infobox.setContent(`mouse position: ${x / 2}, ${mousePos.y}`);
+    infobox.setContent(`mouse position: ${x / 2}, ${mousePos.y}{right}☰☰{/right}`);
 });
+
+infobox.on("click", function (mouse) {
+    // show or hide menu
+    if (mouse.x - infobox.left > 31 && !menuOpen) {
+        showMenu();
+    }
+    // close it if you click away from the button
+    else hideMenu();
+}) 
+
+// close the menu when you click away from it
+offClickBox.on("click", function (mouse) {
+    hideMenu();
+})
 
 // hotkey to reset game (r + s)
 mineBox.key("r", function() {
@@ -196,8 +259,13 @@ screen.key(['escape', 'q', 'C-c'], function (ch, key) {
 
 // left-clicking on a cell - a risky but necessary move
 function clickMine(x = mousePos.x, y = mousePos.y) {
+    // this closes the menu
+    if (menuOpen) {
+        hideMenu();
+        return;
+    }
     if (mineMap.cells[x][y].flagged) {
-        // nothing happened when you click on a flagged square
+        // nothing else happens when you click on a flagged square
         return;
     }
     // "discover" this cell
@@ -238,10 +306,13 @@ function flagMine(x = mousePos.x, y = mousePos.y) {
         // remove flag
         mineMap.cells[x][y].flagged = false;
         flags -= 1;
-        // un-flagged an actual mine.  victory recedes from view
-        unflaggedMines++;
+        // was there a mine here??
+        if (mineMap.cells[x][y].isMine) {
+            // un-flagged an actual mine.  victory recedes from view
+            unflaggedMines++;
+        }
     }
-    if (unflaggedMines === 0) {
+    if (unflaggedMines === 0 && flags === mines) {
         // victory condition achieved :)!!!
         win();
     }
@@ -410,3 +481,66 @@ function displayMap(map) {
     // set box content
     mineBox.setContent(mapString);
 }
+
+function showMenu() {
+    screen.append(menuBox);
+    menuOpen = true;
+
+    // track mouse over menu
+    menuBox.on("mousemove", function (mouse) {
+        // highlight the option the mouse hovers over
+        menuSelect = mouse.y - menuBox.top - 1;
+        // displayMenu();
+    })
+    menuBox.on("click", clickMenu);
+
+    menuSelect = -1;
+
+    // displayMenu();
+}
+
+function displayMenu() {
+    let content = '';
+    for (let n = 0; n < menuOptions.length; n++) {
+        let line = '';
+        // check mark next to selected difficulty
+        if (n === difficulty) {
+            line += "✓" + menuOptions[n].slice(1);
+        }
+        // just show the regular text
+        else line += menuOptions[n]
+        // fill out the rest with spaces
+        line += " ".repeat(menuBox.width - 2 - line.length);
+
+        // highlight the option the mouse hovers over
+        if (n === menuSelect)
+            line = "{white-fg}{black-bg}" + line + "{/black-bg}{/white-fg}";
+
+        // newline
+        if (n > 0) line = "\n" + line;
+
+        // add line to content
+        content += line;
+    }
+    // display
+    menuBox.setContent(content + "");
+}
+
+function clickMenu() {
+    if (menuSelect < 3) {
+        // setting difficulty
+        difficulty = menuSelect;
+        startGame();
+    }
+    // high scores
+    // close menu when you've chosen one
+    hideMenu();
+}
+
+function hideMenu() {
+    //  dont' show the menu if it's not open
+    screen.remove(menuBox);
+    menuOpen = false;
+}
+
+// generateMineMap(9, 9, 10);
