@@ -3,6 +3,7 @@ var blessed = require('blessed');
 
 // always know where the mouse is pointing
 var mousePos = { x: 0, y: 0 };
+var debugMouse = false;
 
 // track flagged mines, unflagged mines, flags, start time, and final time
 var flags = 0;
@@ -10,6 +11,8 @@ var mines = 0;
 var unflaggedMines = 0;
 var startTime = 0;
 var finalTime = 0;
+// difficulty
+var difficulty = 1;
 
 // has the game been won? intially not, but in general, we should know this
 var gameWon = false;
@@ -50,8 +53,8 @@ var mineBox = blessed.box({
 // Create a box in the upper left corner for game info
 var infobox = blessed.box({
     top: 0,
-    left: 0,
-    width: 32,
+    left: 'center',
+    width: 37,
     height: 3,
     tags: true,
     border: {
@@ -83,16 +86,18 @@ var mineMap = {
 startGame();
     
 function startGame() {
-    // reset game variables
+    // generate map appropriate to difficulty level
+    // generate blank map, just so we have something to show
+    mineMap.cells = generateMineMap(16, 16, 0);
+
     mines = 40;
+
+    // reset game variables
     flags = 0;
     unflaggedMines = mines;
     gameWon = false;
     gameLost = false;
     gameStarted = false;
-
-    // generate blank map, just so we have something to show
-    mineMap.cells = generateMineMap(16, 16, 0);
 
     // reset click function
     mineBox.off('click');
@@ -129,7 +134,9 @@ function startGame() {
         // display map string
         displayMap(mineMap);
         // show game info
-        if (!gameStarted)
+        if (debugMouse) 
+            infobox.setContent(infobox.content);
+        else if (!gameStarted)
             infobox.setContent("40     0:00");
         else if (!gameWon && !gameLost)
             // update game timer and remaining mines
@@ -148,10 +155,15 @@ function startGame() {
 // track mouse
 mineBox.on("mousemove", function (mouse) {
     let x = mouse.x - mineBox.left - 1;
-    // only change mouse x when they hover over a cell, not a line
-    if (x % 2 !== 0) mousePos.x = x / 2 - 0.5;
+    // move to the next cell when the mouse advances onto a line
+    // so the cursor "leads" the mouse instead of "following"
+    if (x % 2 === 0) mousePos.x += Math.sign(x / 2 - mousePos.x - 0.5);
+    // when hovering over a cell, move cursor directly to that cell
+    else
+        // round down
+        mousePos.x = parseInt(x / 2);
     mousePos.y = mouse.y - mineBox.top - 1;
-    // infobox.setContent(`mouse position: ${mousePos.x}, ${mousePos.y}`)
+    infobox.setContent(`mouse position: ${x / 2}, ${mousePos.y}`);
 });
 
 // hotkey to reset game (r + s)
