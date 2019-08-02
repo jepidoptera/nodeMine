@@ -157,11 +157,19 @@ mineBox.on("mousemove", function (mouse) {
     let x = mouse.x - mineBox.left - 1;
     // move to the next cell when the mouse advances onto a line
     // so the cursor "leads" the mouse instead of "following"
-    if (x % 2 === 0) mousePos.x += Math.sign(x / 2 - mousePos.x - 0.5);
+    if (x % 2 === 0) {
+        let newPosX = Math.floor(mousePos.x + Math.sign(x / 2 - mousePos.x - 0.5));
+        // stay in bounds
+        if (newPosX < 0 || mousePos.y < 0 || newPosX >= mineMap.cells.length || mousePos.y >= mineMap.cells[0].length) return;
+        // but only do that if the new cell we'd be leading into is undiscovered and unflagged
+        if (!mineMap.cells[newPosX, mousePos.y].discovered
+            && !mineMap.cells[newPosX, mousePos.y].flagged)
+            mousePos.x = newPosX
+    }
     // when hovering over a cell, move cursor directly to that cell
     else
         // round down
-        mousePos.x = parseInt(x / 2);
+        mousePos.x = Math.floor(x / 2);
     mousePos.y = mouse.y - mineBox.top - 1;
     infobox.setContent(`mouse position: ${x / 2}, ${mousePos.y}`);
 });
@@ -334,13 +342,13 @@ function nodeNeighbors(x, y, width, height) {
 // build rows of strings indicating mines and stuff
 // when finished, set box's content to that string
 function displayMap(map) {
-    let mapString = "{underline}";
+    let mapString = "{underline}{gray-fg}";
     for (let y = 0; y < map.height; y++) {
         // one row per line
-        let mapRow = "";
+        let mapRow = "▌{/gray-fg}{black-fg}";
         for (let x = 0; x < map.width; x++) {
             // inter-column line
-            mapRow += "│";
+            if (x > 0) mapRow += "│";
             // highlight the spot where the mouse is
             if (!map.cells[x][y].discovered) {
                 if (map.cells[x][y].flagged) {
@@ -395,7 +403,7 @@ function displayMap(map) {
             }
         }
         // and finish it with a vertical line plus a newline
-        mapString += mapRow + "│\n";
+        mapString += mapRow + "{/black-fg}{gray-fg}▐\n";
     }
     // close off the underline
     mapString += "{/underline}";
