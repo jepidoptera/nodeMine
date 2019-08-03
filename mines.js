@@ -4,7 +4,7 @@ var fs = require('fs');
 
 // always know where the mouse is pointing
 var mousePos = { x: 0, y: 0 };
-var debugMouse = false;
+var debugMouse = true;
 
 // track flagged mines, unflagged mines, flags, start time, and final time
 var flags = 0;
@@ -14,6 +14,8 @@ var startTime = 0;
 var finalTime = 0;
 // difficulty
 var difficulty = 1;
+// high scores
+var easyScore, medScore, hardScore;
 
 // has the game been won? intially not, but in general, we should know this
 var gameWon = false;
@@ -176,23 +178,21 @@ function startGame() {
         displayMap(mineMap);
         let content = '';
         // show game info
-        if (debugMouse) 
-            content =infobox.content;
-        else if (!gameStarted)
-            content ="40     0:00";
-        else if (!gameWon && !gameLost) 
+        if (!gameStarted)
+            content = "*" + mines + "     0:00";
+        else if (!gameWon && !gameLost)
             // update game timer and remaining mines
             content = (mines - flags) + "     " +
                 (parseInt((Date.now() - startTime) / 1000)) + ":" +
                 (parseInt((Date.now() - startTime) / 10) % 100);
         else if (gameLost)
-            content =(mines - flags) + "  :(";
+            content = (mines - flags) + "  :(";
         else
             content = "you win! time: " + finalTime;
         // add menu icon
         content += ' '.repeat(31 - content.length) + "☰☰"
         // display content in box
-        infobox.setContent(content);
+        if (!debugMouse) infobox.setContent(content);        
 
         if (menuOpen) displayMenu();
 
@@ -203,24 +203,44 @@ function startGame() {
 
 // track mouse over game board
 mineBox.on("mousemove", function (mouse) {
-    let x = mouse.x - mineBox.left - 1;
-    // move to the next cell when the mouse advances onto a line
-    // so the cursor "leads" the mouse instead of "following"
-    if (x % 2 === 0) {
-        let newPosX = Math.floor(mousePos.x + Math.sign(x / 2 - mousePos.x - 0.5));
-        // stay in bounds
-        if (newPosX < 0 || mousePos.y < 0 || newPosX >= mineMap.cells.length || mousePos.y >= mineMap.cells[0].length) return;
-        // only move if the new cell we'd be leading into is undiscovered and unflagged
-        if (!mineMap.cells[newPosX, mousePos.y].discovered
-            && !mineMap.cells[newPosX, mousePos.y].flagged)
-            mousePos.x = newPosX
+    // account for the two-character border on the left
+    // and the fact that each cell is two characters wide
+    let x = (mouse.x - mineBox.left - 2) / 2;
+    // y position is straightforward...
+    // one row, one cell
+    let y = mouse.y - mineBox.top - 1;
+    // the mouse here does not operate on a high resolution
+    // instead of pixel-by-pixel, we just get row, column
+    // so it pays to be a little bit smart about where the cursor goes
+    if (x !== Math.floor(x)) {
+        // if the mouse is positioned on a line 
+        // between two cells, we have a choice to make
+        x = (mousePos.x > x
+            ? Math.floor(x)
+            : Math.ceil(x));
     }
-    // when hovering over a cell, move cursor directly to that cell
-    else
-        // round down
-        mousePos.x = Math.floor(x / 2);
-    mousePos.y = mouse.y - mineBox.top - 1;
-    infobox.setContent(`mouse position: ${x / 2}, ${mousePos.y}{right}☰☰{/right}`);
+
+    // stay in bounds
+    x = Math.min(Math.max(0, x), mineMap.cells.length - 1) || 0;
+    y = Math.min(Math.max(0, y), mineMap.cells[0].length - 1) || 0;
+
+    if (debugMouse)
+        // show mouse position
+        infobox.setContent(`mouse position: ${x} || ${mousePos.x}, ${y}`);
+
+        // only change mouseX if the new cell we'd be leading into
+    // is undiscovered and unflagged
+    if (!mineMap.cells[x][y].discovered
+        && !mineMap.cells[x][y].flagged) {
+        mousePos.x = x;
+    } // otherwise don't change until it's all the way into the new cell
+    else {
+        if (debugMouse) infobox.setContent(infobox.content + "!");
+        if (mouse.x % 2 !== 0) 
+            mousePos.x = x;
+    }
+
+    mousePos.y = y;
 });
 
 infobox.on("click", function (mouse) {
@@ -538,9 +558,18 @@ function clickMenu() {
 }
 
 function hideMenu() {
-    //  dont' show the menu if it's not open
+    // don't show the menu if it's not open
     screen.remove(menuBox);
     menuOpen = false;
 }
 
-// generateMineMap(9, 9, 10);
+function loadHighScores() {
+    if (fs.existsSync("./highscores.txt")) {
+        fs.readFile("./highscores.txt").then((data) => {
+            scores = data.split('\n');
+            easyScore = parseFloat(data[0]);
+            medScore = parseFloat(data[1]);
+            hardScore = parseFloat(data[2]);
+        })
+    }
+}
