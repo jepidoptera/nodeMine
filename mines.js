@@ -221,14 +221,14 @@ mineBox.on("mousemove", function (mouse) {
     }
 
     // stay in bounds
-    x = Math.min(Math.max(0, x), mineMap.cells.length - 1) || 0;
-    y = Math.min(Math.max(0, y), mineMap.cells[0].length - 1) || 0;
+    x = Math.min(Math.max(0, x), mineMap.width - 1) || 0;
+    y = Math.min(Math.max(0, y), mineMap.height - 1) || 0;
 
     if (debugMouse)
         // show mouse position
         infobox.setContent(`mouse position: ${x} || ${mousePos.x}, ${y}`);
 
-        // only change mouseX if the new cell we'd be leading into
+    // only change mouseX if the new cell we'd be leading into
     // is undiscovered and unflagged
     if (!mineMap.cells[x][y].discovered
         && !mineMap.cells[x][y].flagged) {
@@ -237,7 +237,8 @@ mineBox.on("mousemove", function (mouse) {
     else {
         // indicate reluctance to enter a discovered or flagged cell
         if (debugMouse) infobox.setContent(infobox.content + "!");
-        if (mouse.x % 2 !== 0) 
+        // but do it anyway if it gets far enough off
+        if (Math.abs(mousePos.x - (mouse.x - mineBox.left - 2) / 2) >= 1)
             mousePos.x = x;
     }
 
@@ -345,6 +346,12 @@ function win() {
     // calculate final time
     finalTime = (parseInt((Date.now() - startTime) / 1000)) + ":" +
         (parseInt((Date.now() - startTime) / 10) % 100);
+    // reveal all map
+    for (let x = 0; x < mineMap.width; x++) {
+        for (let y = 0; y < mineMap.height; y++) {
+            mineMap.cells[x][y].discovered = true;
+        }
+    }
     // next click starts over
     mineBox.off('click');
     mineBox.on('click', startGame);
