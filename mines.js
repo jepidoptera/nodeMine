@@ -4,7 +4,7 @@ var fs = require('fs');
 
 // always know where the mouse is pointing
 var mousePos = { x: 0, y: 0 };
-var debugMouse = true;
+var debugMouse = false;
 
 // track flagged mines, unflagged mines, flags, start time, and final time
 var flags = 0;
@@ -235,6 +235,7 @@ mineBox.on("mousemove", function (mouse) {
         mousePos.x = x;
     } // otherwise don't change until it's all the way into the new cell
     else {
+        // indicate reluctance to enter a discovered or flagged cell
         if (debugMouse) infobox.setContent(infobox.content + "!");
         if (mouse.x % 2 !== 0) 
             mousePos.x = x;
