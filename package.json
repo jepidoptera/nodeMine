@@ -1,0 +1,23 @@
+{
+  "name": "minesweeper",
+  "version": "1.0.0",
+  "description": "minesweeper for node",
+  "main": "mines.js",
+  "dependencies": {
+    "blessed": "^0.1.81"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jepidoptera/nodeMine.git"
+  },
+  "author": "Peter Allen",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/jepidoptera/nodeMine/issues"
+  },
+  "homepage": "https://github.com/jepidoptera/nodeMine#readme"
+}
