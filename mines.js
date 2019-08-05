@@ -1,10 +1,6 @@
 // var readline = require('readline-sync');
 var blessed = require('blessed');
 var fs = require('fs');
-var keypress = require('keypress');
-
-// make `process.stdin` begin emitting "keypress" events
-keypress(process.stdin);
 
 // always know where the mouse is pointing
 var mousePos = { x: 0, y: 0 };
@@ -262,6 +258,17 @@ infobox.on("click", function (mouse) {
 offClickBox.on("click", function (mouse) {
     hideMenu();
 })
+// alternately, press 'm' for menu
+mineBox.key('m', () => {
+    if (!menuOpen) {
+        showMenu();
+        menuSelect = 0;
+        // move the mouse to the first menu item
+        mousePos.y = menuBox.top + 1;
+        displayMenu();
+    }
+    else hideMenu()
+})
 
 // keyboard input
 mineBox.key('left', function() {
@@ -274,18 +281,30 @@ mineBox.key('right', function () {
 
 mineBox.key('down', function () {
     mousePos.y = Math.min(mineMap.height - 1, mousePos.y + 1);
+    // navigate menu with keys
+    if (menuOpen) {
+        menuSelect = Math.min(menuSelect + 1, 3);
+    }
 })
 
 mineBox.key('up', function () {
     mousePos.y = Math.max(0, mousePos.y - 1);
+    if (menuOpen) {
+        menuSelect = Math.max(menuSelect - 1, 0);
+    }
 })
 
 mineBox.key('space', function () {
-    mineBox.click({button: 'left'});
+    if (!menuOpen)
+        mineBox.click({ button: 'left' });
+    else
+        // click menu if it's open
+        clickMenu();
 })
 
 // you can also flag with the 'f' key
 // because macbooks don't seem to register a right-click with the terminal
+// and windows terminal doesn't seem to register the mouse at all
 mineBox.key('f', () => flagMine());
 
 // Quit on Escape, q, or Control-C.
@@ -497,7 +516,7 @@ function displayMap(map) {
                     // traditional minesweeper colors :)
                     '',
                     'blue',
-                    '#008800', // dark green
+                    '#007700', // dark green
                     'red',
                     '#880088', // purple/dark fuscia
                     '#880000', // maroon
