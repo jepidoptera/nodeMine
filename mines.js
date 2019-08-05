@@ -497,7 +497,7 @@ function displayMap(map) {
                 }
                 else {
                     // gray block for 0 mines
-                    mapRow += `{gray-fg}█{/gray-fg}`;
+                    mapRow += `{black-fg}▒{/black-fg}`;
                 }
             }
         }
