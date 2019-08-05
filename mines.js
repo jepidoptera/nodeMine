@@ -512,7 +512,7 @@ function displayMap(map) {
                 }
                 else {
                     // gray block for 0 mines
-                    cell = `{gray-fg}█{/gray-fg}`;
+                    cell = `{gray-fg}▒{/gray-fg}`;
                 }
                 // invert to show mouse position
                 if (x === mousePos.x && y === mousePos.y) {
