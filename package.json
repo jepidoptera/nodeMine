@@ -4,7 +4,9 @@
   "description": "minesweeper for node",
   "main": "mines.js",
   "dependencies": {
-    "blessed": "^0.1.81"
+    "blessed": "^0.1.81",
+    "keypress": "^0.2.1",
+    "tty": "^1.0.1"
   },
   "devDependencies": {},
   "scripts": {

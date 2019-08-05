@@ -1,6 +1,10 @@
 // var readline = require('readline-sync');
 var blessed = require('blessed');
 var fs = require('fs');
+var keypress = require('keypress');
+
+// make `process.stdin` begin emitting "keypress" events
+keypress(process.stdin);
 
 // always know where the mouse is pointing
 var mousePos = { x: 0, y: 0 };
@@ -145,7 +149,7 @@ function startGame() {
     // reset click function
     mineBox.off('click');
     // next time we click, it will generate the map
-    mineBox.on('click', () => {
+    mineBox.click = () => {
 
         // generate new map
         mineMap.cells = generateMineMap(mineMap.width, mineMap.height, mines);
@@ -158,10 +162,8 @@ function startGame() {
         clickMine(mousePos.x, mousePos.y);
 
         // reset click function (again)
-        mineBox.off('click');
-
         // now we're actually playing the game
-        mineBox.on('click', (event) => {
+        mineBox.click = (event) => {
             // either clear or flag, depending on the button
             if (event.button == "left") {
                 clickMine();
@@ -169,8 +171,10 @@ function startGame() {
             else if (event.button == "right") {
                 flagMine();
             }
-        });
-    });
+        };
+    };
+
+    mineBox.on('click', mineBox.click);
 
     // set up the render loop @ 33 fps
     if (!frameInterval) frameInterval = setInterval(() => {
@@ -259,16 +263,26 @@ offClickBox.on("click", function (mouse) {
     hideMenu();
 })
 
-// hotkey to reset game (r + s)
-mineBox.key("r", function() {
-    // mineBox.key('s', function (ch, key) {
-        // regenerate map
-    startGame();
-        // });
+// keyboard input
+mineBox.key('left', function() {
+    mousePos.x = Math.max(0, mousePos.x - 1);
 })
-// mineBox.removeKey("r", function () {
-//     mineBox.unkey("s");
-// })
+
+mineBox.key('right', function () {
+    mousePos.x = Math.min(mineMap.width - 1, mousePos.x + 1);
+})
+
+mineBox.key('down', function () {
+    mousePos.y = Math.min(mineMap.height - 1, mousePos.y + 1);
+})
+
+mineBox.key('up', function () {
+    mousePos.y = Math.max(0, mousePos.y - 1);
+})
+
+mineBox.key('space', function () {
+    mineBox.click({button: 'left'});
+})
 
 // you can also flag with the 'f' key
 // because macbooks don't seem to register a right-click with the terminal
@@ -353,8 +367,7 @@ function win() {
         }
     }
     // next click starts over
-    mineBox.off('click');
-    mineBox.on('click', startGame);
+    mineBox.click = startGame;
 }
 
 // lose the game
@@ -367,8 +380,7 @@ function lose() {
         }
     }
     // next click starts over
-    mineBox.off('click');
-    mineBox.on('click', startGame);
+    mineBox.click = startGame;
 }
 
 // generating a map of the specified diemensions, 
@@ -450,16 +462,18 @@ function displayMap(map) {
             if (x > 0) mapRow += "│";
             // highlight the spot where the mouse is
             if (!map.cells[x][y].discovered) {
+                let cell = '';
                 if (map.cells[x][y].flagged) {
                     // show a flag
-                    mapRow += "{red-fg}►{/red-fg}";
-                }
-                else if (x == mousePos.x && y == mousePos.y) {
-                    mapRow += "{white-fg}{black-bg} {/black-bg}{/white-fg}";
+                    cell = "{red-fg}►{/red-fg}";
                 }
                 else {
-                    mapRow += " ";
+                    cell = " ";
                 }
+                if (x == mousePos.x && y == mousePos.y) {
+                    cell = "{black-bg}" + cell + "{/black-bg}";
+                }
+                mapRow += cell;
             }
             else if (map.cells[x][y].isMine) {
                 // there is a mine here
@@ -477,6 +491,7 @@ function displayMap(map) {
                 mapRow += `{bold}{white-fg}{red-bg}X{/red-bg}{/white-fg}{/bold}`;
             }
             else {
+                let cell = '';
                 // show number of adjacent mines
                 let color = [
                     // traditional minesweeper colors :)
@@ -493,12 +508,17 @@ function displayMap(map) {
                     [map.cells[x][y].number];   
                 // build the display string
                 if (color) {
-                    mapRow += `{${color}-fg}${(map.cells[x][y].number).toString()}{/${color}-fg}`;
+                    cell = `{${color}-fg}${(map.cells[x][y].number).toString()}{/${color}-fg}`;
                 }
                 else {
                     // gray block for 0 mines
-                    mapRow += `{gray-fg}█{/gray-fg}`;
+                    cell = `{gray-fg}█{/gray-fg}`;
                 }
+                // invert to show mouse position
+                if (x === mousePos.x && y === mousePos.y) {
+                    cell = "{black-bg}" + cell + "{/black-bg}"
+                }
+                mapRow += cell;
             }
         }
         // and finish it with a vertical line plus a newline
