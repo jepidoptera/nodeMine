@@ -142,8 +142,6 @@ function startGame() {
     gameLost = false;
     gameStarted = false;
 
-    // reset click function
-    mineBox.off('click');
     // next time we click, it will generate the map
     mineBox.click = () => {
 
@@ -169,8 +167,8 @@ function startGame() {
             }
         };
     };
-
-    mineBox.on('click', mineBox.click);
+    mineBox.off('click');
+    mineBox.on('click', (event) => click()(event));
 
     // set up the render loop @ 33 fps
     if (!frameInterval) frameInterval = setInterval(() => {
@@ -200,6 +198,10 @@ function startGame() {
         screen.render();
     }, 33);
 };
+
+function click() {
+    return mineBox.click;
+}
 
 // track mouse over game board
 mineBox.on("mousemove", function (mouse) {
@@ -489,7 +491,7 @@ function displayMap(map) {
                 else {
                     cell = " ";
                 }
-                if (x == mousePos.x && y == mousePos.y) {
+                if (x === mousePos.x && y === mousePos.y) {
                     cell = "{black-bg}" + cell + "{/black-bg}";
                 }
                 mapRow += cell;
